@@ -1,0 +1,16 @@
+{
+  "scripts": {
+    "dev": "bun run --hot src/main.ts",
+    "check": "bun biome check --write src",
+    "compile": "bun build src/main.ts --compile --minify --sourcemap --bytecode --outfile server"
+  },
+  "dependencies": {
+    "hono": "latest"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "latest",
+    "@tsconfig/bun": "latest",
+    "@tsconfig/strictest": "latest",
+    "@types/bun": "latest"
+  }
+}
