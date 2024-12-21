@@ -3,6 +3,7 @@ import { $ } from 'bun'
 import { createMiddleware } from 'hono/factory'
 import { logger } from 'hono/logger'
 import { Hono } from 'hono/quick'
+import { z } from 'zod'
 
 const app = new Hono()
 // log requests
@@ -29,54 +30,71 @@ const tempDirMiddleware = createMiddleware<{ Variables: { out: string } }>(
 )
 
 app.post('/', tempDirMiddleware, async c => {
-  // get tex
-  const tex = await c.req.text()
-  // save file to temp directory
+  const body = await c.req.json()
+  const result = z
+    .object({
+      sequent: z.string().min(1),
+      bussproofs: z.boolean(),
+      ebproof: z.boolean(),
+      timeout: z.number().min(0).max(10),
+    })
+    .safeParse(body)
+  if (!result.success) {
+    console.error(`Invalid Request: ${result.error}`)
+    return c.text('Invalid Request', 400)
+  }
+  const { sequent, bussproofs, ebproof, timeout } = result.data
+  const format: string[] = []
+  if (bussproofs) {
+    format.push('bussproofs')
+  }
+  if (ebproof) {
+    format.push('ebproof')
+  }
   const out = c.get('out')
-  await Bun.write(`${out}/out.tex`, tex)
-  // run pdflatex
-  console.info('Generating PDF...')
-  let text = 'Generating PDF...\n'
-  const pdf =
-    await $`pdflatex -halt-on-error -interaction=nonstopmode -output-directory ${out} ${out}/out.tex`
+  // run prover
+  console.info('Proving...')
+  const { stdout, stderr, exitCode } =
+    await $`timeout ${timeout} java -jar -Xmx500m prover.jar ${sequent} ${out} --format=${format.join(',')}`
       .nothrow()
       .quiet()
-  // Dimension too large
-  if (pdf.stdout.includes('Dimension too large')) {
-    console.error('Failed: Dimension too large')
-    text += 'Failed: Dimension too large'
-    return c.text(text)
+  // parse error
+  if (stdout.includes('Parse Error')) {
+    console.error('Failed: Parse Error')
+    return c.text(`${stdout}`)
   }
-  // if pdf does not exist
-  if (!(await Bun.file(`${out}/out.pdf`).exists())) {
+  // timeout
+  if (exitCode === 124) {
+    console.error('Failed: Timeout')
+    return c.text(`${stdout}\nFailed: Timeout`)
+  }
+  // OutOfMemoryError
+  if (stderr.includes('OutOfMemoryError')) {
+    console.error('Failed: OutOfMemoryError')
+    return c.text(`${stdout}\nFailed: OutOfMemoryError`)
+  }
+  // StackOverflowError
+  if (stderr.includes('StackOverflowError')) {
+    console.error('Failed: StackOverflowError')
+    return c.text(`${stdout}\nFailed: StackOverflowError`)
+  }
+  // Unexpected error
+  if (
+    (bussproofs && !(await Bun.file(`${out}/out-bussproofs.tex`).exists())) ||
+    (ebproof && !(await Bun.file(`${out}/out-ebproof.tex`).exists()))
+  ) {
     console.error('Failed: Unexpected error')
-    console.info(`${pdf.stdout}\n${pdf.stderr}`)
-    text += 'Failed: Unexpected error'
-    return c.text(text)
+    console.info(`${stderr}`)
+    return c.text(`${stdout}\nFailed: Unexpected error`)
   }
   console.info('Done!')
-  text += 'Done!\n'
-  // convert pdf to png
-  console.info('Generating PNG...')
-  text += 'Generating PNG...\n'
-  const png =
-    await $`gswin64c -dBATCH -dNOPAUSE -r600 -sDEVICE=pngmono -o "${out}/out.png" "${out}/out.pdf"`
-      .nothrow()
-      .quiet()
-  // if png does not exist
-  if (!(await Bun.file(`${out}/out.png`).exists())) {
-    console.error('Failed: Unexpected error')
-    console.info(`${png.stdout}\n${png.stderr}`)
-    text += 'Failed: Unexpected error'
-    return c.text(text)
-  }
-  console.info('Done!')
-  // read png as buffer
-  const buffer = await Bun.file(`${out}/out.png`).arrayBuffer()
-  c.header('Content-Type', 'image/png')
-  // c.header('Content-Length', buffer.byteLength.toString())
-  // c.header('Content-Disposition', 'attachment; filename=out.png')
-  return c.body(buffer)
+  return c.json({
+    text: `${stdout}`,
+    bussproofs: bussproofs
+      ? await Bun.file(`${out}/out-bussproofs.tex`).text()
+      : null,
+    ebproof: ebproof ? await Bun.file(`${out}/out-ebproof.tex`).text() : null,
+  })
 })
 
 export default app
