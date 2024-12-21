@@ -92,8 +92,10 @@ app.post('/', tempDirMiddleware, async c => {
     text: `${stdout}`,
     bussproofs: bussproofs
       ? await Bun.file(`${out}/out-bussproofs.tex`).text()
-      : null,
-    ebproof: ebproof ? await Bun.file(`${out}/out-ebproof.tex`).text() : null,
+      : undefined,
+    ebproof: ebproof
+      ? await Bun.file(`${out}/out-ebproof.tex`).text()
+      : undefined,
   })
 })
 
