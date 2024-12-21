@@ -66,17 +66,17 @@ app.post('/', tempDirMiddleware, async c => {
   // timeout
   if (exitCode === 124) {
     console.error('Failed: Timeout')
-    return c.text(`${stdout}\nFailed: Timeout`)
+    return c.text(`${stdout}Failed: Timeout`)
   }
   // OutOfMemoryError
   if (stderr.includes('OutOfMemoryError')) {
     console.error('Failed: OutOfMemoryError')
-    return c.text(`${stdout}\nFailed: OutOfMemoryError`)
+    return c.text(`${stdout}Failed: OutOfMemoryError`)
   }
   // StackOverflowError
   if (stderr.includes('StackOverflowError')) {
     console.error('Failed: StackOverflowError')
-    return c.text(`${stdout}\nFailed: StackOverflowError`)
+    return c.text(`${stdout}Failed: StackOverflowError`)
   }
   // Unexpected error
   if (
@@ -85,7 +85,7 @@ app.post('/', tempDirMiddleware, async c => {
   ) {
     console.error('Failed: Unexpected error')
     console.info(`${stderr}`)
-    return c.text(`${stdout}\nFailed: Unexpected error`)
+    return c.text(`${stdout}Failed: Unexpected error`)
   }
   console.info('Done!')
   return c.json({
