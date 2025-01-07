@@ -33,7 +33,7 @@ app.post('/', tempDirMiddleware, async c => {
   const body = await c.req.json()
   const result = z
     .object({
-      sequent: z.string().min(1),
+      formula: z.string().min(1),
       bussproofs: z.boolean(),
       ebproof: z.boolean(),
       timeout: z.number().min(0).max(10),
@@ -43,7 +43,7 @@ app.post('/', tempDirMiddleware, async c => {
     console.error(`Invalid Request: ${result.error}`)
     return c.text('Invalid Request', 400)
   }
-  const { sequent, bussproofs, ebproof, timeout } = result.data
+  const { formula, bussproofs, ebproof, timeout } = result.data
   const format: string[] = []
   if (bussproofs) {
     format.push('bussproofs')
@@ -55,7 +55,7 @@ app.post('/', tempDirMiddleware, async c => {
   // run prover
   console.info('Proving...')
   const { stdout, stderr, exitCode } =
-    await $`timeout ${timeout} java -jar -Xmx500m prover.jar ${sequent} ${out} --format=${format.join(',')}`
+    await $`timeout ${timeout} java -jar -Xmx500m prover.jar ${formula} ${out} --format=${format.join(',')}`
       .nothrow()
       .quiet()
   // parse error
