@@ -5,6 +5,7 @@
     "compile": "bun build src/main.ts --compile --minify --sourcemap --bytecode --outfile server"
   },
   "dependencies": {
+    "@hono/zod-validator": "latest",
     "hono": "latest",
     "zod": "latest"
   },
