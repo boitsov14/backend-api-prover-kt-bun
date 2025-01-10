@@ -42,7 +42,9 @@ app.post(
   ),
   tempDirMiddleware,
   async c => {
-    const { formula, format, timeout } = c.req.valid('form')
+    const form = c.req.valid('form')
+    console.info(form)
+    const { formula, format, timeout } = form
     const out = c.get('out')
     // run prover
     console.info('Proving...')
