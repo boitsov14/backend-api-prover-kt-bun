@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { zValidator } from '@hono/zod-validator'
 import { $ } from 'bun'
+import { cors } from 'hono/cors'
 import { createMiddleware } from 'hono/factory'
 import { logger } from 'hono/logger'
 import { Hono } from 'hono/quick'
@@ -14,6 +15,8 @@ app.onError((err, c) => {
   console.error(`Unexpected error: ${err}`)
   return c.text('Unexpected error', 500)
 })
+// set CORS
+app.use('*', cors())
 // create temp dir
 // biome-ignore lint/style/useNamingConvention:
 const tempDirMiddleware = createMiddleware<{ Variables: { out: string } }>(
@@ -32,11 +35,13 @@ const tempDirMiddleware = createMiddleware<{ Variables: { out: string } }>(
 
 app.post(
   '/',
+  // validate request
   zValidator(
     'form',
     z.object({
       formula: z.string().nonempty(),
-      format: z.array(z.enum(['bussproofs', 'ebproof'])).optional(),
+      bussproofs: z.literal('on').optional(),
+      ebproof: z.literal('on').optional(),
       timeout: z.enum(['3', '5', '10']),
     }),
   ),
@@ -44,12 +49,12 @@ app.post(
   async c => {
     const form = c.req.valid('form')
     console.info(form)
-    const { formula, format, timeout } = form
+    const { formula, bussproofs, ebproof, timeout } = form
     const out = c.get('out')
     // run prover
     console.info('Proving...')
     const { stdout, stderr, exitCode } =
-      await $`timeout ${timeout} java -jar -Xmx500m prover.jar ${formula} ${out} --format=${format?.join(',')}`
+      await $`timeout ${timeout} java -jar -Xmx500m prover.jar ${formula} ${out} ${bussproofs ? '--bussproofs' : ''} ${ebproof ? '--ebproof' : ''}`
         .nothrow()
         .quiet()
     // parse error
@@ -74,10 +79,8 @@ app.post(
     }
     // Unexpected error
     if (
-      (format?.includes('bussproofs') &&
-        !(await Bun.file(`${out}/out-bussproofs.tex`).exists())) ||
-      (format?.includes('ebproof') &&
-        !(await Bun.file(`${out}/out-ebproof.tex`).exists()))
+      (bussproofs && !(await Bun.file(`${out}/out-bussproofs.tex`).exists())) ||
+      (ebproof && !(await Bun.file(`${out}/out-ebproof.tex`).exists()))
     ) {
       console.error('Failed: Unexpected error')
       console.info(`${stderr}`)
@@ -86,10 +89,10 @@ app.post(
     console.info('Done!')
     return c.json({
       text: `${stdout}`,
-      bussproofs: format?.includes('bussproofs')
+      bussproofs: bussproofs
         ? await Bun.file(`${out}/out-bussproofs.tex`).text()
         : undefined,
-      ebproof: format?.includes('ebproof')
+      ebproof: ebproof
         ? await Bun.file(`${out}/out-ebproof.tex`).text()
         : undefined,
     })
