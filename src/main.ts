@@ -57,11 +57,6 @@ app.post(
       await $`timeout ${timeout} java -jar -Xmx500m prover.jar ${formula} ${out} ${bussproofs ? '--bussproofs' : ''} ${ebproof ? '--ebproof' : ''}`
         .nothrow()
         .quiet()
-    // parse error
-    if (stdout.includes('Parse Error')) {
-      console.error('Failed: Parse Error')
-      return c.text(`${stdout}`)
-    }
     // timeout
     if (exitCode === 124) {
       console.error('Failed: Timeout')
@@ -77,22 +72,13 @@ app.post(
       console.error('Failed: StackOverflowError')
       return c.text(`${stdout}Failed: StackOverflowError`)
     }
-    // Unexpected error
-    if (
-      (bussproofs && !(await Bun.file(`${out}/out-bussproofs.tex`).exists())) ||
-      (ebproof && !(await Bun.file(`${out}/out-ebproof.tex`).exists()))
-    ) {
-      console.error('Failed: Unexpected error')
-      console.info(`${stderr}`)
-      return c.text(`${stdout}Failed: Unexpected error`)
-    }
     console.info('Done!')
     return c.json({
       text: `${stdout}`,
-      bussproofs: bussproofs
+      bussproofs: (await Bun.file(`${out}/out-bussproofs.tex`).exists())
         ? await Bun.file(`${out}/out-bussproofs.tex`).text()
         : undefined,
-      ebproof: ebproof
+      ebproof: (await Bun.file(`${out}/out-ebproof.tex`).exists())
         ? await Bun.file(`${out}/out-ebproof.tex`).text()
         : undefined,
     })
