@@ -53,28 +53,25 @@ app.post(
     const out = c.get('out')
     // run prover
     console.info('Proving...')
-    const { stdout, stderr, exitCode } =
-      await $`timeout ${timeout} java -jar -Xmx500m prover.jar ${formula} ${out} ${bussproofs ? '--bussproofs' : ''} ${ebproof ? '--ebproof' : ''}`
-        .nothrow()
-        .quiet()
+    const { stderr, exitCode } =
+      await $`timeout ${timeout} java -jar -Xmx500m prover.jar ${formula} ${out} ${bussproofs ? '--bussproofs' : ''} ${ebproof ? '--ebproof' : ''}`.nothrow()
+    // get text
+    let text = await Bun.file(`${out}/prover-log.txt`).text()
     // timeout
     if (exitCode === 124) {
-      console.error('Failed: Timeout')
-      return c.text(`${stdout}Failed: Timeout`)
+      text += 'Failed: Timeout'
     }
     // OutOfMemoryError
     if (stderr.includes('OutOfMemoryError')) {
-      console.error('Failed: OutOfMemoryError')
-      return c.text(`${stdout}Failed: OutOfMemoryError`)
+      text += 'Failed: OutOfMemoryError'
     }
     // StackOverflowError
     if (stderr.includes('StackOverflowError')) {
-      console.error('Failed: StackOverflowError')
-      return c.text(`${stdout}Failed: StackOverflowError`)
+      text += 'Failed: StackOverflowError'
     }
     console.info('Done!')
     return c.json({
-      text: `${stdout}`,
+      text: text,
       bussproofs: (await Bun.file(`${out}/out-bussproofs.tex`).exists())
         ? await Bun.file(`${out}/out-bussproofs.tex`).text()
         : undefined,
