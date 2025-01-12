@@ -44,9 +44,11 @@ const validator = zValidator(
 )
 
 app.post('/', validator, tempDirMiddleware, async c => {
+  // get form
   const form = c.req.valid('form')
   console.info(form)
   const { formula, bussproofs, ebproof, timeout } = form
+  // get temp dir
   const out = c.get('out')
   // run prover
   console.info('Proving...')
