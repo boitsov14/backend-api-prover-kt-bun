@@ -32,54 +32,50 @@ const tempDirMiddleware = createMiddleware<{ Variables: { out: string } }>(
     }
   },
 )
-
-app.post(
-  '/',
-  // validate request
-  zValidator(
-    'form',
-    z.object({
-      formula: z.string().nonempty(),
-      bussproofs: z.literal('on').optional(),
-      ebproof: z.literal('on').optional(),
-      timeout: z.enum(['3', '5', '10']),
-    }),
-  ),
-  tempDirMiddleware,
-  async c => {
-    const form = c.req.valid('form')
-    console.info(form)
-    const { formula, bussproofs, ebproof, timeout } = form
-    const out = c.get('out')
-    // run prover
-    console.info('Proving...')
-    const { stderr, exitCode } =
-      await $`timeout ${timeout} java -jar -Xmx500m prover.jar ${formula} ${out} ${bussproofs ? '--bussproofs' : ''} ${ebproof ? '--ebproof' : ''}`.nothrow()
-    // get text
-    let text = await Bun.file(`${out}/prover-log.txt`).text()
-    // timeout
-    if (exitCode === 124) {
-      text += 'Failed: Timeout'
-    }
-    // OutOfMemoryError
-    if (stderr.includes('OutOfMemoryError')) {
-      text += 'Failed: OutOfMemoryError'
-    }
-    // StackOverflowError
-    if (stderr.includes('StackOverflowError')) {
-      text += 'Failed: StackOverflowError'
-    }
-    console.info('Done!')
-    return c.json({
-      text: text,
-      bussproofs: (await Bun.file(`${out}/out-bussproofs.tex`).exists())
-        ? await Bun.file(`${out}/out-bussproofs.tex`).text()
-        : undefined,
-      ebproof: (await Bun.file(`${out}/out-ebproof.tex`).exists())
-        ? await Bun.file(`${out}/out-ebproof.tex`).text()
-        : undefined,
-    })
-  },
+// validate request
+const validator = zValidator(
+  'form',
+  z.object({
+    formula: z.string().nonempty(),
+    bussproofs: z.literal('on').optional(),
+    ebproof: z.literal('on').optional(),
+    timeout: z.enum(['3', '5', '10']),
+  }),
 )
+
+app.post('/', validator, tempDirMiddleware, async c => {
+  const form = c.req.valid('form')
+  console.info(form)
+  const { formula, bussproofs, ebproof, timeout } = form
+  const out = c.get('out')
+  // run prover
+  console.info('Proving...')
+  const { stderr, exitCode } =
+    await $`timeout ${timeout} java -jar -Xmx500m prover.jar ${formula} ${out} ${bussproofs ? '--bussproofs' : ''} ${ebproof ? '--ebproof' : ''}`.nothrow()
+  // get text
+  let text = await Bun.file(`${out}/prover-log.txt`).text()
+  // timeout
+  if (exitCode === 124) {
+    text += 'Failed: Timeout'
+  }
+  // OutOfMemoryError
+  if (stderr.includes('OutOfMemoryError')) {
+    text += 'Failed: OutOfMemoryError'
+  }
+  // StackOverflowError
+  if (stderr.includes('StackOverflowError')) {
+    text += 'Failed: StackOverflowError'
+  }
+  console.info('Done!')
+  return c.json({
+    text: text,
+    bussproofs: (await Bun.file(`${out}/out-bussproofs.tex`).exists())
+      ? await Bun.file(`${out}/out-bussproofs.tex`).text()
+      : undefined,
+    ebproof: (await Bun.file(`${out}/out-ebproof.tex`).exists())
+      ? await Bun.file(`${out}/out-ebproof.tex`).text()
+      : undefined,
+  })
+})
 
 export default app
