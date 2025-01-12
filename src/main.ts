@@ -7,6 +7,9 @@ import { logger } from 'hono/logger'
 import { Hono } from 'hono/quick'
 import { z } from 'zod'
 
+const MEMORY_LIMIT = '500m'
+const FILE_SIZE_LIMIT = 1 * 1024 * 1024 // 1MB
+
 const app = new Hono()
 // log requests
 app.use(logger())
@@ -53,7 +56,7 @@ app.post('/', validator, tempDirMiddleware, async c => {
   // run prover
   console.info('Proving...')
   const { stderr, exitCode } =
-    await $`timeout ${timeout} java -jar -Xmx500m prover.jar ${formula} ${out} ${bussproofs ? '--bussproofs' : ''} ${ebproof ? '--ebproof' : ''}`.nothrow()
+    await $`timeout ${timeout} java -jar -Xmx${MEMORY_LIMIT} prover.jar ${formula} ${out} ${FILE_SIZE_LIMIT} ${bussproofs ? '--format=bussproofs' : ''} ${ebproof ? '--format=ebproof' : ''}`.nothrow()
   // get text
   let text = await Bun.file(`${out}/prover-log.txt`).text()
   // timeout
