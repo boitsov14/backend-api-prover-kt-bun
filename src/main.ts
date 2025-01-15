@@ -72,6 +72,7 @@ app.post('/', validator, tempDirMiddleware, async c => {
     text += 'Failed: StackOverflowError'
   }
   console.info('Done!')
+  console.info(text)
   return c.json({
     text: text,
     bussproofs: (await Bun.file(`${out}/out-bussproofs.tex`).exists())
