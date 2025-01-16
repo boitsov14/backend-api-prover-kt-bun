@@ -16,7 +16,7 @@ app.use(logger())
 // handle errors
 app.onError((err, c) => {
   console.error(`Unexpected error: ${err}`)
-  return c.text('Unexpected error', 500)
+  return c.text('Unexpected error')
 })
 // set CORS
 app.use('*', cors())
@@ -37,26 +37,25 @@ const tempDirMiddleware = createMiddleware<{ Variables: { out: string } }>(
 )
 // validate request
 const validator = zValidator(
-  'form',
+  'json',
   z.object({
     formula: z.string().nonempty(),
-    bussproofs: z.literal('on').optional(),
-    ebproof: z.literal('on').optional(),
-    timeout: z.enum(['3', '5', '10']),
+    format: z.array(z.enum(['bussproofs', 'ebproof'])),
+    timeout: z.number().int().positive().max(10),
   }),
 )
 
 app.post('/', validator, tempDirMiddleware, async c => {
-  // get form
-  const form = c.req.valid('form')
-  console.info(form)
-  const { formula, bussproofs, ebproof, timeout } = form
+  // get json
+  const json = c.req.valid('json')
+  console.info(json)
+  const { formula, format, timeout } = json
   // get temp dir
   const out = c.get('out')
   // run prover
   console.info('Proving...')
   const { stderr, exitCode } =
-    await $`timeout ${timeout} java -jar -Xmx${MEMORY_LIMIT} prover.jar ${formula} ${out} ${FILE_SIZE_LIMIT} ${bussproofs ? '--format=bussproofs' : ''} ${ebproof ? '--format=ebproof' : ''}`.nothrow()
+    await $`timeout ${timeout} java -jar -Xmx${MEMORY_LIMIT} prover.jar ${formula} ${out} ${FILE_SIZE_LIMIT} ${format.map(f => `--format=${f}`).join(' ')}`.nothrow()
   // get text
   let text = await Bun.file(`${out}/prover-log.txt`).text()
   // timeout
