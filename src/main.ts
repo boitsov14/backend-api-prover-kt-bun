@@ -52,10 +52,13 @@ app.post('/', validator, tempDirMiddleware, async c => {
   const { formula, format, timeout } = json
   // get temp dir
   const out = c.get('out')
+  // save formula as file
+  await Bun.write(`${out}/formula.txt`, formula)
   // run prover
   console.info('Proving...')
   const { stderr, exitCode } =
-    await $`timeout ${timeout} java -jar -Xmx${MEMORY_LIMIT} prover.jar ${formula} ${out} ${FILE_SIZE_LIMIT} ${format.map(f => `--format=${f}`).join(' ')}`.nothrow()
+    await $`timeout ${timeout} java -jar -Xmx${MEMORY_LIMIT} prover.jar ${out} ${FILE_SIZE_LIMIT} ${format.includes('bussproofs') ? '--format=bussproofs' : ''} ${format.includes('ebproof') ? '--format=ebproof' : ''}`.nothrow()
+  console.info(`exit code: ${exitCode}`)
   // get text
   let text = await Bun.file(`${out}/prover-log.txt`).text()
   // timeout
@@ -71,8 +74,8 @@ app.post('/', validator, tempDirMiddleware, async c => {
     text += 'Failed: StackOverflowError'
   }
   console.info('Done!')
-  console.info(text)
-  return c.json({
+  // set result
+  const result = {
     text: text,
     bussproofs: (await Bun.file(`${out}/out-bussproofs.tex`).exists())
       ? await Bun.file(`${out}/out-bussproofs.tex`).text()
@@ -80,7 +83,14 @@ app.post('/', validator, tempDirMiddleware, async c => {
     ebproof: (await Bun.file(`${out}/out-ebproof.tex`).exists())
       ? await Bun.file(`${out}/out-ebproof.tex`).text()
       : undefined,
+  }
+  // log result
+  console.info({
+    text: result.text,
+    bussproofs: result.bussproofs?.substring(0, 100),
+    ebproof: result.ebproof?.substring(0, 100),
   })
+  return c.json(result)
 })
 
 export default app
