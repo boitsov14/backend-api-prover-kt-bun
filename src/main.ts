@@ -40,7 +40,8 @@ const validator = zValidator(
   'json',
   z.object({
     formula: z.string().nonempty(),
-    format: z.array(z.enum(['bussproofs', 'ebproof'])),
+    bussproofs: z.boolean(),
+    ebproof: z.boolean(),
     timeout: z.number().int().positive().max(10),
   }),
 )
@@ -49,7 +50,7 @@ app.post('/', validator, tempDirMiddleware, async c => {
   // get json
   const json = c.req.valid('json')
   console.info(json)
-  const { formula, format, timeout } = json
+  const { formula, bussproofs, ebproof, timeout } = json
   // get temp dir
   const out = c.get('out')
   // save formula as file
@@ -57,7 +58,7 @@ app.post('/', validator, tempDirMiddleware, async c => {
   // run prover
   console.info('Proving...')
   const { stderr, exitCode } =
-    await $`timeout ${timeout} java -jar -Xmx${MEMORY_LIMIT} prover.jar ${out} ${FILE_SIZE_LIMIT} ${format.includes('bussproofs') ? '--format=bussproofs' : ''} ${format.includes('ebproof') ? '--format=ebproof' : ''}`.nothrow()
+    await $`timeout ${timeout} java -jar -Xmx${MEMORY_LIMIT} prover.jar ${out} ${FILE_SIZE_LIMIT} ${bussproofs ? '--format=bussproofs' : ''} ${ebproof ? '--format=ebproof' : ''}`.nothrow()
   console.info(`exit code: ${exitCode}`)
   // get text
   let text = await Bun.file(`${out}/prover-log.txt`).text()
@@ -88,7 +89,11 @@ app.post('/', validator, tempDirMiddleware, async c => {
   console.info({
     text: result.text,
     bussproofs: result.bussproofs?.substring(0, 100),
+    bussproofsSize: result.bussproofs
+      ? Buffer.byteLength(result.bussproofs)
+      : undefined,
     ebproof: result.ebproof?.substring(0, 100),
+    ebproofSize: result.ebproof ? Buffer.byteLength(result.ebproof) : undefined,
   })
   return c.json(result)
 })
