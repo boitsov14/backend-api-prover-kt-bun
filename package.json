@@ -2,7 +2,7 @@
   "scripts": {
     "dev": "bun run --hot src/main.ts",
     "check": "bun biome check --write src",
-    "compile": "bun build src/main.ts --compile --minify --sourcemap --bytecode --outfile server"
+    "compile": "bun build src/main.ts --compile --target=bun-linux-x64 --minify --sourcemap --outfile main"
   },
   "dependencies": {
     "@hono/zod-validator": "latest",

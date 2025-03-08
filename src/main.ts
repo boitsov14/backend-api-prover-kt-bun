@@ -78,24 +78,36 @@ app.post('/', validator, tempDirMiddleware, async c => {
   // set result
   const result = {
     text: text,
-    bussproofs: (await Bun.file(`${out}/out-bussproofs.tex`).exists())
-      ? await Bun.file(`${out}/out-bussproofs.tex`).text()
+    formula: (await Bun.file(`${out}/formula.tex`).exists())
+      ? await Bun.file(`${out}/formula.tex`).text()
       : undefined,
-    ebproof: (await Bun.file(`${out}/out-ebproof.tex`).exists())
-      ? await Bun.file(`${out}/out-ebproof.tex`).text()
-      : undefined,
+    proofs: {
+      bussproofs: (await Bun.file(`${out}/out-bussproofs.tex`).exists())
+        ? await Bun.file(`${out}/out-bussproofs.tex`).text()
+        : undefined,
+      ebproof: (await Bun.file(`${out}/out-ebproof.tex`).exists())
+        ? await Bun.file(`${out}/out-ebproof.tex`).text()
+        : undefined,
+    },
   }
   // log result
   console.info({
     text: result.text,
-    bussproofs: result.bussproofs?.substring(0, 100),
-    bussproofsSize: result.bussproofs
-      ? Buffer.byteLength(result.bussproofs)
+    formula: result.formula?.substring(0, 100),
+    bussproofs: result.proofs.bussproofs?.substring(0, 100),
+    bussproofsSize: result.proofs.bussproofs
+      ? Buffer.byteLength(result.proofs.bussproofs)
       : undefined,
-    ebproof: result.ebproof?.substring(0, 100),
-    ebproofSize: result.ebproof ? Buffer.byteLength(result.ebproof) : undefined,
+    ebproof: result.proofs.ebproof?.substring(0, 100),
+    ebproofSize: result.proofs.ebproof
+      ? Buffer.byteLength(result.proofs.ebproof)
+      : undefined,
   })
   return c.json(result)
 })
 
-export default app
+export default {
+  // biome-ignore lint/complexity/useLiteralKeys:
+  port: Bun.env['PORT'] || 8080,
+  fetch: app.fetch,
+}
